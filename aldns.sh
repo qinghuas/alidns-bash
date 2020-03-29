@@ -202,7 +202,11 @@ record_list(){
 		id=$(expr $i + 1)
 		RR=$(get RR)
 		Line=$(get Line)
-		Status=$(get Status)
+		if [[ "$(get Status)" = "ENABLE" ]];then
+			Status="\033[32m enable \033[0m"
+		else
+			Status="\033[31m disable \033[0m"
+		fi
 		Locked=$(get Locked)
 		Type=$(get Type)
 		Value=$(get Value)
