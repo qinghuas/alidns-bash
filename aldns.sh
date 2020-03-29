@@ -1,0 +1,364 @@
+#!/bin/bash
+
+#AccessKey
+AccessKeyId=''
+AccessKeySecret=''
+#管理的域名
+ManagementDomain=''
+#API地址
+ALiServerAddr='https://alidns.aliyuncs.com'
+#DDNS设置
+ddns_record_id=''
+
+check(){
+	if [[ "${AccessKeyId}" = "" ]];then
+		echo "缺少AccessKeyId."
+		exit
+	fi
+	if [[ "${AccessKeySecret}" = "" ]];then
+		echo "缺少AccessKeySecret."
+		exit
+	fi
+	if [[ ! -f "/usr/bin/jq" ]];then
+		echo "缺少 jq 命令."
+		exit
+	fi
+	if [[ ! -f "/usr/bin/column" ]];then
+		echo "缺少 column 命令."
+		exit
+	fi
+	if [[ ! -d "/root/alidns" ]];then
+		mkdir /root/alidns
+	fi
+}
+
+put_param(){
+	eval g_pkey_${g_pn}=$1
+	eval g_pval_$1=$2
+	g_pn=$((g_pn + 1))
+}
+
+reset_func_ret(){
+	_func_ret=""
+}
+
+rawurl_encode() {
+	reset_func_ret
+
+	local string="${1}"
+	local strlen=${#string}
+	local encoded=""
+	local pos c o
+
+	pos=0
+	while [ ${pos} -lt ${strlen} ]
+	do
+		c=${string:$pos:1}
+		case "$c" in
+			[-_.~a-zA-Z0-9] ) o="${c}" ;;
+			* )               o=$(printf "%%%02X" "'$c")
+		esac
+		encoded="${encoded}${o}"
+		pos=$(($pos + 1))
+	done
+	_func_ret="${encoded}" 
+}
+
+calc_signature(){
+	reset_func_ret
+
+	local sorted_key=$(
+		i=0
+		while [ $i -lt ${g_pn} ]
+		do
+			eval key="\$g_pkey_$i"
+			echo "${key}"
+			i=$((++i))
+		done | LC_COLLATE=C sort
+	)
+
+	local query_str=""
+
+	for key in ${sorted_key}
+	do
+		eval val="\$g_pval_${key}"
+
+		rawurl_encode "${key}"
+		key_enc=${_func_ret}
+		rawurl_encode "${val}"
+		val_enc=${_func_ret}
+
+		query_str="${query_str}${key_enc}=${val_enc}&"
+	done
+
+	query_str=${query_str%'&'}
+
+	# encode
+	rawurl_encode "${query_str}"
+	local encoded_str=${_func_ret}
+	local str_to_signed="GET&%2F&"${encoded_str}
+
+	local key_sign="${AccessKeySecret}&"
+	_func_ret=$(/bin/echo -n ${str_to_signed} | openssl dgst -binary -sha1 -hmac ${key_sign} | openssl enc -base64)
+}
+
+pack_params(){
+	reset_func_ret
+	local ret=""
+	local key key_enc val val_enc
+
+	local i=0
+	while [ $i -lt ${g_pn} ]
+	do
+		eval key="\$g_pkey_${i}"
+		eval val="\$g_pval_${key}"
+		rawurl_encode "${key}"
+		key_enc=${_func_ret}
+		rawurl_encode "${val}"
+		val_enc=${_func_ret}
+
+		ret="${ret}${key_enc}=${val_enc}&"
+		i=$((++i))
+	done
+
+	#delete last "&"
+	_func_ret=${ret%"&"}
+}
+
+send_request(){
+	# put signature
+	calc_signature
+	local signature=${_func_ret}
+	put_param "Signature" "${signature}"
+
+	# pack all params
+	pack_params
+	local packed_params=${_func_ret}
+
+	local req_url="${ALiServerAddr}/?${packed_params}"
+	local req_url=$(echo $req_url | sed 's#?=&#?#g')
+
+	#echo $req_url
+	curl -s "${req_url}" > /root/alidns/$1
+}
+
+put_params_public(){
+	put_param "key" "value"
+	put_param "Format" "JSON"
+	put_param "Version" "2015-01-09"
+	put_param "AccessKeyId" "${AccessKeyId}"
+	put_param "SignatureMethod" "HMAC-SHA1"
+	put_param "SignatureVersion" "1.0"
+	put_param "Timestamp" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+	put_param "SignatureNonce" "$(openssl rand -hex 16)"
+}
+
+check_parameter(){
+	if [[ "parameter${1}" = "" ]];then
+		echo "No record id passed in."
+		exit
+	fi
+}
+
+add_parsing(){
+	read -p "主机记录:" HostRecord
+	read -p "解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
+	if [[ "${ParsingRecordTypes}" = "MX" ]];then
+		read -p "MX记录优先级:" MxRecordPriority
+	fi
+	read -p "记录值:" RecordValue
+	read -p "TTL值(单位:s):" ttl_value
+	
+	put_params_public
+	put_param "Action" "AddDomainRecord"
+	put_param "DomainName" "${ManagementDomain}"
+	put_param "RR" "${HostRecord}"
+	put_param "Type" "${ParsingRecordTypes}"
+	put_param "Value" "${RecordValue}"
+	put_param "TTL" "${ttl_value}"
+	if [[ "${ParsingRecordTypes}" = "MX" ]];then
+		put_param "Priority" "${MxRecordPriority}"
+	fi
+	
+	send_request add.parsing.response.json
+	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+}
+
+record_list(){
+	put_params_public
+	put_param "Action" "DescribeDomainRecords"
+	put_param "DomainName" "${ManagementDomain}"
+	put_param "PageNumber" "1"
+	put_param "PageSize" "500"
+	
+	send_request record.list.response.json
+	RecordsNumber=$(cat /root/alidns/record.list.response.json | jq ".TotalCount")
+	echo "ID | 主机记录 | 解析线路 | 解析记录状态 | 解析记录锁定状态 | 记录类型 | 记录值 | 解析记录ID | TTL" > /root/alidns/record.list.response.txt
+	for (( i=0; i < ${RecordsNumber}; i++ ))
+	do
+		get(){
+			cat /root/alidns/record.list.response.json | jq ".DomainRecords.Record[${i}].$1" | sed 's/"//g'
+		}
+		id=$(expr $i + 1)
+		RR=$(get RR)
+		Line=$(get Line)
+		Status=$(get Status)
+		Locked=$(get Locked)
+		Type=$(get Type)
+		Value=$(get Value)
+		RecordId=$(get RecordId)
+		TTL=$(get TTL)
+		echo "$id | $RR | $Line | $Status | $Locked | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
+	done
+	column -t -s '|' /root/alidns/record.list.response.txt > /root/alidns/record.list.txt
+	cat /root/alidns/record.list.txt
+}
+
+set_recording_status(){
+	check_parameter 2
+	
+	put_params_public
+	put_param "Action" "SetDomainRecordStatus"
+	put_param "RecordId" "${parameter2}"
+	if [[ "${parameter1}" = "enable" ]];then
+		put_param "Status" "Enable"
+	else
+		put_param "Status" "Disable"
+	fi
+
+	send_request set.recording.status.response.json
+	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+}
+
+delete_parse_record(){
+	check_parameter 2
+	put_params_public
+	put_param "Action" "DeleteDomainRecord"
+	put_param "RecordId" "${parameter2}"
+	send_request delete.parse.record.response.json
+	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+}
+
+modify_parsing_records(){
+	check_parameter 2
+	put_params_public
+	put_param "Action" "UpdateDomainRecord"
+	read -p "新主机记录:" HostRecord
+	read -p "新解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
+	if [[ "${ParsingRecordTypes}" = "MX" ]];then
+		read -p "新MX记录优先级:" MxRecordPriority
+	fi
+	read -p "新记录值:" RecordValue
+	read -p "新TTL值(单位:s):" ttl_value
+	
+	put_param "RecordId" "${parameter2}"
+	put_param "RR" "${HostRecord}"
+	put_param "Type" "${ParsingRecordTypes}"
+	put_param "Value" "${RecordValue}"
+	put_param "TTL" "${ttl_value}"
+	if [[ "${ParsingRecordTypes}" = "MX" ]];then
+		put_param "Priority" "${MxRecordPriority}"
+	fi
+	
+	send_request modify.parsing.records.response.json
+	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+}
+
+search_parse_record_list(){
+	check_parameter 2
+	check_parameter 3
+	check_parameter 4
+	put_params_public
+	put_param "Action" "DescribeDomainRecords"
+	put_param "DomainName" "${ManagementDomain}"
+	put_param "PageNumber" "1"
+	put_param "PageSize" "500"
+	if [[ "${parameter2}" = "RR" ]];then
+		put_param "RRKeyWord" "${parameter3}"
+	elif [[ "${parameter2}" = "Type" ]];then
+		put_param "TypeKeyWord" "${parameter3}"
+	elif [[ "${parameter2}" = "Value" ]];then
+		put_param "ValueKeyWord" "${parameter3}"
+	fi
+	send_request search.parse.record.list.response.json
+	RecordsNumber=$(cat /root/alidns/search.parse.record.list.response.json | jq ".TotalCount")
+	echo "ID | 主机记录 | 解析线路 | 解析记录状态 | 解析记录锁定状态 | 记录类型 | 记录值 | 解析记录ID | TTL" > /root/alidns/search.parse.record.list.response.txt
+	for (( i=0; i < ${RecordsNumber}; i++ ))
+	do
+		get(){
+			cat /root/alidns/search.parse.record.list.response.json | jq ".DomainRecords.Record[${i}].$1" | sed 's/"//g'
+		}
+		id=$(expr $i + 1)
+		RR=$(get RR)
+		Line=$(get Line)
+		Status=$(get Status)
+		Locked=$(get Locked)
+		Type=$(get Type)
+		Value=$(get Value)
+		RecordId=$(get RecordId)
+		TTL=$(get TTL)
+		echo "$id | $RR | $Line | $Status | $Locked | $Type | $Value | $RecordId | $TTL" >> /root/alidns/search.parse.record.list.response.txt
+	done
+	column -t -s '|' /root/alidns/search.parse.record.list.response.txt > /root/alidns/search.parse.record.list.txt
+	cat /root/alidns/search.parse.record.list.txt
+}
+
+ddns_domain_value_update(){
+	server_ip=$(curl -s ip.sb)
+	BasePath=$(cd $(dirname ${BASH_SOURCE}) ; pwd)
+	BaseName=$(basename $BASH_SOURCE)
+	# 致谢 https://xvcat.com/post/1096
+	record_ip=$(bash ${BasePath}/${BaseName} list | grep ${ddns_record_id} | awk '{print $7}')
+	record_rr=$(bash ${BasePath}/${BaseName} list | grep ${ddns_record_id} | awk '{print $2}')
+	if [[ "${server_ip}" != "${record_ip}" ]];then
+		put_params_public
+		put_param "Action" "UpdateDomainRecord"
+		put_param "RecordId" "${ddns_record_id}"
+		put_param "Value" "${server_ip}"
+		put_param "RR" "${record_rr}"
+		put_param "TTL" "600"
+		put_param "Type" "A"
+		
+		send_request ddns.domain.value.update.response.json
+		echo "$(date "+%Y-%m-%d %H:%M:%S") 解析id为${ddns_record_id}解析主机为${record_rr}解析记录为${record_ip}变更了新的解析记录${server_ip}" | tee -a /root/alidns/ddns.domain.value.update.log
+	fi
+}
+
+# put_param "" ""
+
+help_information(){
+	echo "add - 添加解析记录
+list - 获取解析列表
+del {record id} 删除解析记录
+edit {record id} 编辑解析记录
+enable {record id} - 启用解析记录
+disable {record id} - 停用解析记录
+search {RR|Type|Value} {KeyWord} - 使用关键词 KeyWord 查询记录"
+}
+
+clear
+check
+parameter1=$1
+parameter2=$2
+parameter3=$3
+parameter4=$4
+case "$parameter1" in
+	add)
+		add_parsing;;
+	list)
+		record_list;;
+	enable|disable)
+		set_recording_status;;
+	del)
+		delete_parse_record;;
+	edit)
+		modify_parsing_records;;
+	help)
+		help_information;;
+	search)
+		search_parse_record_list;;
+	ddns)
+		ddns_domain_value_update;;
+esac
+
+#END 2020-03-29
