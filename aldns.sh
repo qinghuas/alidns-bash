@@ -161,13 +161,45 @@ check_parameter(){
 }
 
 add_parsing(){
+	#主机记录
 	read -p "主机记录:" HostRecord
+	if [[ "${HostRecord}" = "" ]];then
+		echo "主机记录不能为空.";exit
+	else
+		echo -e "\033[32m 主机记录:$HostRecord \033[0m"
+	fi
+	#解析记录类型
 	read -p "解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
+	if [[ "${ParsingRecordTypes}" = "" ]];then
+		echo -e "\033[32m 解析记录类型:A \033[0m"
+		ParsingRecordTypes='A'
+	else
+		echo -e "\033[32m 解析记录类型:$ParsingRecordTypes \033[0m"
+	fi
+	#如若是MX记录,询问MX记录优先级
 	if [[ "${ParsingRecordTypes}" = "MX" ]];then
 		read -p "MX记录优先级:" MxRecordPriority
+		if [[ "${MxRecordPriority}" = "" ]];then
+			echo "MX记录优先级不能为空.";exit
+		else
+			echo -e "\033[32m MX记录优先级:$MxRecordPriority \033[0m"
+		fi
 	fi
+	#记录值
 	read -p "记录值:" RecordValue
+	if [[ "${RecordValue}" = "" ]];then
+		echo "记录值不能为空.";exit
+	else
+		echo -e "\033[32m 记录值:$RecordValue \033[0m"
+	fi
+	#TTL值
 	read -p "TTL值(单位:s):" ttl_value
+	if [[ "${ttl_value}" = "" ]];then
+		ttl_value='600'
+		echo -e "\033[32m TTL值:600 \033[0m"
+	else
+		echo -e "\033[32m TTL值:$ttl_value \033[0m"
+	fi
 	
 	put_params_public
 	put_param "Action" "AddDomainRecord"
