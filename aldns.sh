@@ -225,7 +225,7 @@ record_list(){
 	
 	send_request record.list.response.json
 	RecordsNumber=$(cat /root/alidns/record.list.response.json | jq ".TotalCount")
-	echo "ID | 主机记录 | 解析线路 | 解析记录状态 | 解析记录锁定状态 | 记录类型 | 记录值 | 解析记录ID | TTL" > /root/alidns/record.list.response.txt
+	echo "ID | 主机记录 | 解析线路 | 记录状态 | 记录类型 | 记录值 | 记录ID | TTL" > /root/alidns/record.list.response.txt
 	for (( i=0; i < ${RecordsNumber}; i++ ))
 	do
 		get(){
@@ -239,12 +239,12 @@ record_list(){
 		else
 			Status="\033[31m disable \033[0m"
 		fi
-		Locked=$(get Locked)
+		#Locked=$(get Locked)
 		Type=$(get Type)
 		Value=$(get Value)
 		RecordId=$(get RecordId)
 		TTL=$(get TTL)
-		echo "$id | $RR | $Line | $Status | $Locked | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
+		echo -e "$id | $RR | $Line | $Status | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/record.list.response.txt > /root/alidns/record.list.txt
 	cat /root/alidns/record.list.txt
@@ -279,13 +279,46 @@ modify_parsing_records(){
 	check_parameter 2
 	put_params_public
 	put_param "Action" "UpdateDomainRecord"
+	
+	#主机记录
 	read -p "新主机记录:" HostRecord
+	if [[ "${HostRecord}" = "" ]];then
+		echo "主机记录不能为空.";exit
+	else
+		echo -e "\033[32m 主机记录:$HostRecord \033[0m"
+	fi
+	#解析记录类型
 	read -p "新解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
+	if [[ "${ParsingRecordTypes}" = "" ]];then
+		echo -e "\033[32m 解析记录类型:A \033[0m"
+		ParsingRecordTypes='A'
+	else
+		echo -e "\033[32m 解析记录类型:$ParsingRecordTypes \033[0m"
+	fi
+	#如若是MX记录,询问MX记录优先级
 	if [[ "${ParsingRecordTypes}" = "MX" ]];then
 		read -p "新MX记录优先级:" MxRecordPriority
+		if [[ "${MxRecordPriority}" = "" ]];then
+			echo "MX记录优先级不能为空.";exit
+		else
+			echo -e "\033[32m MX记录优先级:$MxRecordPriority \033[0m"
+		fi
 	fi
+	#记录值
 	read -p "新记录值:" RecordValue
+	if [[ "${RecordValue}" = "" ]];then
+		echo "记录值不能为空.";exit
+	else
+		echo -e "\033[32m 记录值:$RecordValue \033[0m"
+	fi
+	#TTL值
 	read -p "新TTL值(单位:s):" ttl_value
+	if [[ "${ttl_value}" = "" ]];then
+		ttl_value='600'
+		echo -e "\033[32m TTL值:600 \033[0m"
+	else
+		echo -e "\033[32m TTL值:$ttl_value \033[0m"
+	fi
 	
 	put_param "RecordId" "${parameter2}"
 	put_param "RR" "${HostRecord}"
@@ -318,7 +351,7 @@ search_parse_record_list(){
 	fi
 	send_request search.parse.record.list.response.json
 	RecordsNumber=$(cat /root/alidns/search.parse.record.list.response.json | jq ".TotalCount")
-	echo "ID | 主机记录 | 解析线路 | 解析记录状态 | 解析记录锁定状态 | 记录类型 | 记录值 | 解析记录ID | TTL" > /root/alidns/search.parse.record.list.response.txt
+	echo "ID | 主机记录 | 解析线路 | 记录状态 | 记录类型 | 记录值 | 记录ID | TTL" > /root/alidns/search.parse.record.list.response.txt
 	for (( i=0; i < ${RecordsNumber}; i++ ))
 	do
 		get(){
@@ -327,13 +360,18 @@ search_parse_record_list(){
 		id=$(expr $i + 1)
 		RR=$(get RR)
 		Line=$(get Line)
-		Status=$(get Status)
-		Locked=$(get Locked)
+		Status=$(get Status | tr A-Z a-z)
+		#Locked=$(get Locked)
 		Type=$(get Type)
 		Value=$(get Value)
 		RecordId=$(get RecordId)
 		TTL=$(get TTL)
-		echo "$id | $RR | $Line | $Status | $Locked | $Type | $Value | $RecordId | $TTL" >> /root/alidns/search.parse.record.list.response.txt
+		if [[ "$Status" = "enable" ]];then
+			StatusText="\033[32m${Status}\033[0m"
+		else
+			StatusText="\033[31m${Status}\033[0m"
+		fi
+		echo -e "$id | $RR | $Line | $StatusText | $Type | $Value | $RecordId | $TTL" >> /root/alidns/search.parse.record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/search.parse.record.list.response.txt > /root/alidns/search.parse.record.list.txt
 	cat /root/alidns/search.parse.record.list.txt
@@ -395,6 +433,8 @@ case "$parameter1" in
 		search_parse_record_list;;
 	ddns)
 		ddns_domain_value_update;;
+	account)
+		echo "${ManagementDomain}";;
 esac
 
-#END 2020-03-29
+#END 2020-07-02
