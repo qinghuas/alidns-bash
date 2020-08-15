@@ -23,44 +23,44 @@ wget https://raw.githubusercontent.com/qinghuas/alidns-bash/master/aldns.sh
 # 用法
 * 添加解析。执行该命令后按提示操作
 ```
-bash alidns.sh add
+bash aldns.sh add
 ```
 * 查看解析列表，同时将输出每条解析记录对应的ID
 ```
-bash alidns.sh list
+bash aldns.sh list
 ```
 * 启用某个解析记录。须传入该解析记录ID。假设ID为 ```19436255792427984``` ，则执行
 ```
-bash alidns.sh enable 19436255792427984
+bash aldns.sh enable 19436255792427984
 ```
 * 停用某个解析记录。须传入该解析记录ID。假设ID为 ```19436255792427984``` ，则执行
 ```
-bash alidns.sh disable 19436255792427984
+bash aldns.sh disable 19436255792427984
 ```
 * 删除某个解析记录。须传入该解析记录ID。假设id为 ```19436255792427984``` ，则执行
 ```
-bash alidns.sh del 19436255792427984
+bash aldns.sh del 19436255792427984
 ```
 * 编辑某个解析记录。须传入该解析记录ID。假设id为 ```19436255792427984``` ，则执行如下命令，然后按提示操作
 ```
-bash alidns.sh edit 19436255792427984
+bash aldns.sh edit 19436255792427984
 ```
 * 指定查询规则匹配解析记录。大小写敏感。例如，查询所有记录值为 8.8.8.8 的解析记录
 ```
-bash alidns.sh search Value 8.8.8.8
+bash aldns.sh search Value 8.8.8.8
 ```
 * 查询所有解析类型为 A 的解析记录。大小写敏感。可选A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL
 ```
-bash alidns.sh search Type A
+bash aldns.sh search Type A
 ```
 * 查询所有主机记录为 ddns 的解析记录
 ```
-bash alidns.sh search RR ddns
+bash aldns.sh search RR ddns
 ```
 * 更新 ddns 域名解析记录。须配置 ```ddns_record_id``` 后配合 ```crontab``` 使用。```ip``` 变更 ```log``` 文件位于 ```/root/alidns/ddns.domain.value.update.log```
 
 ```
-bash alidns.sh ddns
+bash aldns.sh ddns
 ```
 例如：每10分钟检查一次，则 ```crontab``` 的写法：
 ```
@@ -68,7 +68,7 @@ bash alidns.sh ddns
 ```
 * 输出帮助信息
 ```
-bash alidns.sh help
+bash aldns.sh help
 ```
 # 管理多个域名
 将 ```aldns.sh``` 复制一份后编辑 ```aldns2.sh``` 更改 ```ManagementDomain``` 项即可。如若域名在不同账户下，须填入对应账户的 ```AccessKeyId``` 与 ```AccessKeySecret```
