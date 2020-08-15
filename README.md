@@ -57,15 +57,6 @@ bash aldns.sh search Type A
 ```
 bash aldns.sh search RR ddns
 ```
-* 更新 ddns 域名解析记录。须配置 ```ddns_record_id``` 后配合 ```crontab``` 使用。```ip``` 变更 ```log``` 文件位于 ```/root/alidns/ddns.domain.value.update.log```
-
-```
-bash aldns.sh ddns
-```
-例如：每10分钟检查一次，则 ```crontab``` 的写法：
-```
-*/10 * * * * /bin/bash /root/aldns.sh ddns
-```
 * 输出帮助信息
 ```
 bash aldns.sh help
@@ -81,6 +72,13 @@ cp /root/aldns.sh /root/aldns2.sh
 mv /root/aldns.sh /usr/bin/aldns
 chmod 755 /usr/bin/aldns
 ```
+# 配置 DDNS
+* 首先添加一条A记录解析，然后获取解析记录ID，将解析记录ID与主机记录分别填入 ```ddns_record_id``` 和 ```ddns_record_value``` 内
+* 然后配置 crontab 添加定时任务。例如：每10分钟检查一次，则 ```crontab``` 的写法：
+```
+*/10 * * * * /bin/bash /root/aldns.sh ddns
+```
+* ```ip``` 变更 ```log``` 文件位于 ```/root/alidns/ddns.domain.value.update.log```
 # 致谢
 感谢 @h46incon 完成了阿里云API请求的基础框架与操作的项目 https://github.com/h46incon/AliDDNSBash
 
