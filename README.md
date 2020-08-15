@@ -16,7 +16,7 @@ wget https://raw.githubusercontent.com/qinghuas/alidns-bash/master/aldns.sh
 * 未填入 ```AccessKeySecret``` 会报错 ```缺少AccessKeySecret.``` 并退出
 * 未安装 ```jq``` 命令会报错 ```缺少 jq 命令.``` 并退出
 * 未安装 ```column``` 命令会报错 ```缺少 column 命令.``` 并退出
-* 若目录 ```/root/aldns``` 不存在会自动建立，用于存放请求响应文件以及日志
+* 若目录 ```/root/alidns``` 不存在会自动建立，用于存放请求响应文件以及日志
 
 如若未安装 ```jq``` 命令与```column``` 命令请善于使用谷歌等搜索引擎解决
 
