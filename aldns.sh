@@ -9,6 +9,7 @@ ManagementDomain=''
 ALiServerAddr='https://alidns.aliyuncs.com'
 #DDNS设置
 ddns_record_id=''
+ddns_record_value=''
 
 check(){
 	if [[ "${AccessKeyId}" = "" ]];then
@@ -378,13 +379,13 @@ search_parse_record_list(){
 }
 
 ddns_domain_value_update(){
-	server_ip=$(curl -s ip.sb)
+	server_ip=$(curl -s http://members.3322.org/dyndns/getip)
 	BasePath=$(cd $(dirname ${BASH_SOURCE}) ; pwd)
 	BaseName=$(basename $BASH_SOURCE)
 	# 致谢 https://xvcat.com/post/1096
-	record_ip=$(bash ${BasePath}/${BaseName} list | grep ${ddns_record_id} | awk '{print $7}')
-	record_rr=$(bash ${BasePath}/${BaseName} list | grep ${ddns_record_id} | awk '{print $2}')
-	if [[ "${server_ip}" != "${record_ip}" ]];then
+	record_ip=$(bash ${BasePath}/${BaseName} search RR $ddns_record_value | grep ${ddns_record_value} | awk '{print $6}')
+	record_rr=$(bash ${BasePath}/${BaseName} search RR $ddns_record_value | grep ${ddns_record_value} | awk '{print $2}')
+	if [[ "${server_ip}" != "${record_ip}" ]] && [[ "${record_ip}" != "" ]];then
 		put_params_public
 		put_param "Action" "UpdateDomainRecord"
 		put_param "RecordId" "${ddns_record_id}"
@@ -395,6 +396,8 @@ ddns_domain_value_update(){
 		
 		send_request ddns.domain.value.update.response.json
 		echo "$(date "+%Y-%m-%d %H:%M:%S") 解析id为${ddns_record_id}解析主机为${record_rr}解析记录为${record_ip}变更了新的解析记录${server_ip}" | tee -a /root/alidns/ddns.domain.value.update.log
+	else
+		echo "There is nothing to update."
 	fi
 }
 
@@ -437,4 +440,4 @@ case "$parameter1" in
 		echo "${ManagementDomain}";;
 esac
 
-#END 2020-07-02
+#END 2020-08-15
