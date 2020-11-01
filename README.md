@@ -9,7 +9,7 @@ wget https://raw.githubusercontent.com/qinghuas/alidns-bash/master/aldns.sh
 * 前往 https://usercenter.console.aliyun.com/ 获取 ```AccessKeyId``` 与 ```AccessKeySecret``` 后填入对应位置
 * 在 ```ManagementDomain``` 后填入需要管理的域名。例如 ```github.com```
 * API地址 ```ALiServerAddr``` 通常不需要更改
-* DDNS设置 ```ddns_record_id``` 如若不配置ddns服务请留空
+* DDNS设置 ```ddns_record_id``` 和 ```ddns_record_value``` 如若不配置ddns服务请留空
 
 配置运行环境使脚本通过自检
 * 未填入 ```AccessKeyId``` 会报错 ```缺少AccessKeyId.``` 并退出
