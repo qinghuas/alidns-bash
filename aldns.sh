@@ -205,7 +205,7 @@ add_parsing()
 	if [[ "${ttl_value}" = "" ]];then
 		ttl_value="${default_ttl}"
 	fi
-	echo -e "\033[32m TTL值:${default_ttl} \033[0m"
+	echo -e "\033[32m TTL值:${ttl_value} \033[0m"
 	
 	put_params_public
 	put_param "Action" "AddDomainRecord"
@@ -344,7 +344,7 @@ modify_parsing_records()
 	if [[ "${ttl_value}" = "" ]];then
 		ttl_value="${default_ttl}"
 	fi
-	echo -e "\033[32m TTL值:${default_ttl} \033[0m"
+	echo -e "\033[32m TTL值:${ttl_value} \033[0m"
 	
 	put_param "RecordId" "${parameter2}"
 	put_param "RR" "${HostRecord}"
