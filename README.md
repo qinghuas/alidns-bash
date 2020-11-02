@@ -57,7 +57,7 @@ bash aldns.sh search Type A
 ```
 bash aldns.sh search RR ddns
 ```
-若查询结果仅有 1 条，可以在 ddns 后加上命令 edit ，直接进入该记录的修改流程。若查询结果有多条将会提示
+若确定查询结果仅有 1 条，可以在 主机记录值 后加上参数 edit ，进入该记录的修改流程
 ```
 bash aldns.sh search RR ddns edit
 ```
