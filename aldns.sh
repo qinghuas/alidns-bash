@@ -361,10 +361,14 @@ modify_parsing_records()
 
 search_parse_record_list()
 {
-	if [[ "${parameter2}" = "" ]];then
-		echo "No required parameters are passed in: {RR|Type|Value}"
-		exit
-	fi
+	case "${parameter2}" in
+		RR|Type|Value)
+			;;
+		*)
+			echo "No required parameters are passed in: {RR|Type|Value}"
+			exit
+	esac
+	
 	if [[ "${parameter3}" = "" ]];then
 		echo "No required parameters are passed in: ValueKeyWord"
 		exit
