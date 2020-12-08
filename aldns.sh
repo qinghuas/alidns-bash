@@ -457,7 +457,7 @@ ddns_domain_value_update()
 	fi
 	
 	server_ip=$(curl -s http://members.3322.org/dyndns/getip)
-	bash "${BasePath}"/"${BaseName}" getinfo "${parameter2}"
+	bash "${BasePath}"/"${BaseName}" getinfo "${ddns_record_id}"
 	record_rr=$(cat /root/alidns/value | awk -F ':' '{print $1}')
 	record_ip=$(cat /root/alidns/value | awk -F ':' '{print $2}')
 	
