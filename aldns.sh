@@ -27,7 +27,7 @@ check()
 		exit
 	fi
 	if [[ ! -f "/usr/bin/jq" ]];then
-		echo "缺少 jq 命令."
+		apt-get -y install jq
 		exit
 	fi
 	if [[ ! -f "/usr/bin/column" ]];then
@@ -482,15 +482,41 @@ view_ddns_log()
 	cat -n /root/alidns/ddns.domain.value.update.log
 }
 
+setting_parameters()
+{
+	file_path="${BasePath}/${BaseName}"
+	case "$parameter2" in
+		AccessKeyId)
+			sed -i "4c AccessKeyId=\'${parameter3}\'" $file_path
+			echo "Set successfully : AccessKeyId -> ${parameter3}";;
+		AccessKeySecret)
+			sed -i "5c AccessKeySecret=\'${parameter3}\'" $file_path
+			echo "Set successfully : AccessKeySecret -> ${parameter3}";;
+		ManagementDomain)
+			sed -i "7c ManagementDomain=\'${parameter3}\'" $file_path
+			echo "Set successfully : ManagementDomain -> ${parameter3}";;
+		ddns_record_id)
+			sed -i "11c ddns_record_id=\'${parameter3}\'" $file_path
+			echo "Set successfully : ddns_record_id -> ${parameter3}";;
+		ddns_record_value)
+			sed -i "12c ddns_record_value=\'${parameter3}\'" $file_path
+			echo "Set successfully : ddns_record_value -> ${parameter3}";;
+		default_ttl)
+			sed -i "14c default_ttl=\'${parameter3}\'" $file_path
+			echo "Set successfully : default_ttl -> ${parameter3}";;
+	esac
+}
+
 help_information()
 {
 	echo "add - 添加解析记录
-list - 获取解析列表
 del {record id} 删除解析记录
+list - 获取解析列表
 edit {record id} 编辑解析记录
 enable {record id} - 启用解析记录
 disable {record id} - 停用解析记录
 search {RR|Type|Value} {KeyWord} - 使用关键词 KeyWord 查询记录
+set {AccessKeyId|AccessKeySecret|ManagementDomain|ddns_record_id|ddns_record_value|default_ttl}
 
 ddns 执行检测与更新
 log 查阅 ddns 更新日志
@@ -499,11 +525,14 @@ log 查阅 ddns 更新日志
 }
 
 clear
-check
 parameter1=$1
 parameter2=$2
 parameter3=$3
 parameter4=$4
+
+if [[ "$parameter1" != "set" ]] && [[ "$parameter1" != "help" ]];then
+	check
+fi
 
 case "$parameter1" in
 	add)
@@ -526,8 +555,10 @@ case "$parameter1" in
 		echo "${ManagementDomain}";;
 	log)
 		view_ddns_log;;
+	set)
+		setting_parameters;;
 	help|*)
 		help_information;;
 esac
 
-#END 2020-11-02
+#END 2021-01-07
