@@ -3,7 +3,7 @@
 # 配置
 下载脚本
 ```
-wget https://raw.githubusercontent.com/qinghuas/alidns-bash/master/aldns.sh
+wget https://raw.staticdn.net/qinghuas/alidns-bash/master/aldns.sh
 ```
 使用 ```vim``` 命令或 ```xftp``` 配合 ```Notepad++``` 编辑 ```aldns.sh``` 
 * 前往 https://usercenter.console.aliyun.com/ 获取 ```AccessKeyId``` 与 ```AccessKeySecret``` 后填入对应位置
