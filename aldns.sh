@@ -271,6 +271,8 @@ record_list()
 		echo -e "$id | $RR | $Status | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/record.list.response.txt > /root/alidns/record.list.txt
+	
+	clear
 	cat /root/alidns/record.list.txt
 }
 
