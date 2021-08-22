@@ -631,6 +631,8 @@ case "$parameter1" in
 		echo "${Domain}";;
 	log)
 		view_ddns_log;;
+	set)
+		setting_parameters;;
 	help|*)
 		help_information;;
 esac
