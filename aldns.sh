@@ -4,34 +4,33 @@
 AccessKeyId=''
 AccessKeySecret=''
 # 管理域名
-ManagementDomain=''
+Domain=''
 # API地址
 ALiServerAddr='https://alidns.aliyuncs.com'
 # DDNS设置
-ddns_record_id=''
-ddns_record_value=''
+DdnsRecordId=''
 # 其他设置
-default_ttl='600'
+DefaultTTL='600'
 # 致谢 https://xvcat.com/post/1096
 BasePath=$(cd $(dirname ${BASH_SOURCE}) ; pwd)
 BaseName=$(basename $BASH_SOURCE)
-	
+
+red='\033[31m'
+green='\033[32m'
+end='\033[0m'
+
 check()
 {
 	if [[ "${AccessKeyId}" = "" ]];then
-		echo "缺少AccessKeyId."
+		echo "缺少 AccessKeyId."
 		exit
 	fi
 	if [[ "${AccessKeySecret}" = "" ]];then
-		echo "缺少AccessKeySecret."
+		echo "缺少 AccessKeySecret."
 		exit
 	fi
 	if [[ ! -f "/usr/bin/jq" ]];then
-		apt-get -y install jq
-		exit
-	fi
-	if [[ ! -f "/usr/bin/column" ]];then
-		echo "缺少 column 命令."
+		echo "缺少 jq 命令."
 		exit
 	fi
 	if [[ ! -d "/root/alidns" ]];then
@@ -172,44 +171,47 @@ add_parsing()
 	#主机记录
 	read -p "主机记录:" HostRecord
 	if [[ "${HostRecord}" = "" ]];then
-		echo "主机记录不能为空.";exit
+		echo -e "${red} 主机记录不能为空. ${end}"
+		exit
 	else
-		echo -e "\033[32m 主机记录:$HostRecord \033[0m"
+		echo -e "${green} 主机记录:$HostRecord ${end}"
 	fi
 	#记录值
 	read -p "记录值:" RecordValue
 	if [[ "${RecordValue}" = "" ]];then
-		echo "记录值不能为空.";exit
+		echo -e "${red} 记录值不能为空. ${end}"
+		exit
 	else
-		echo -e "\033[32m 记录值:$RecordValue \033[0m"
+		echo -e "${green} 记录值:$RecordValue ${end}"
 	fi
 	#解析记录类型
 	read -p "解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
 	if [[ "${ParsingRecordTypes}" = "" ]];then
-		echo -e "\033[32m 解析记录类型:A \033[0m"
+		echo -e "${green} 使用默认解析记录类型:A ${end}"
 		ParsingRecordTypes='A'
 	else
-		echo -e "\033[32m 解析记录类型:$ParsingRecordTypes \033[0m"
+		echo -e "${green} 解析记录类型:$ParsingRecordTypes ${end}"
 	fi
 	#如若是MX记录,询问MX记录优先级
 	if [[ "${ParsingRecordTypes}" = "MX" ]];then
 		read -p "MX记录优先级:" MxRecordPriority
 		if [[ "${MxRecordPriority}" = "" ]];then
-			echo "MX记录优先级不能为空.";exit
+			echo -e "${red} MX记录优先级不能为空. ${end}"
+			exit
 		else
-			echo -e "\033[32m MX记录优先级:$MxRecordPriority \033[0m"
+			echo -e "${green} MX记录优先级:$MxRecordPriority ${end}"
 		fi
 	fi
 	#TTL值
-	read -p "TTL值(单位:s):" ttl_value
+	read -p "TTL值:" ttl_value
 	if [[ "${ttl_value}" = "" ]];then
-		ttl_value="${default_ttl}"
+		ttl_value="${DefaultTTL}"
 	fi
-	echo -e "\033[32m TTL值:${ttl_value} \033[0m"
+	echo -e "${green} TTL值:${ttl_value} ${end}"
 	
 	put_params_public
 	put_param "Action" "AddDomainRecord"
-	put_param "DomainName" "${ManagementDomain}"
+	put_param "DomainName" "${Domain}"
 	put_param "RR" "${HostRecord}"
 	put_param "Type" "${ParsingRecordTypes}"
 	put_param "Value" "${RecordValue}"
@@ -218,21 +220,36 @@ add_parsing()
 		put_param "Priority" "${MxRecordPriority}"
 	fi
 	
+	echo "请求发送中..."
 	send_request add.parsing.response.json
-	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+
+	ResponseFile='/root/alidns/add.parsing.response.json'
+	Message=$(jq .Message $ResponseFile | sed 's#"##g')
+	if [[ "$Message" != "null" ]];then
+		echo -e "${red} 添加失败,以下信息供参考: ${end}"
+		echo "RequestId -> $(jq .RequestId $ResponseFile | sed 's#"##g')"
+		echo "HostId    -> $(jq .HostId $ResponseFile | sed 's#"##g')"
+		echo "Code      -> $(jq .Code $ResponseFile | sed 's#"##g')"
+		echo "Message   -> $(jq .Message $ResponseFile | sed 's#"##g')"
+		echo "Recommend -> $(jq .Recommend $ResponseFile | sed 's#"##g')"
+	else
+		echo -e "${green} 添加成功. ${end}"
+		echo "RecordId -> $(jq .RecordId $ResponseFile | sed 's#"##g')"
+	fi
 }
 
 record_list()
 {
 	put_params_public
 	put_param "Action" "DescribeDomainRecords"
-	put_param "DomainName" "${ManagementDomain}"
+	put_param "DomainName" "${Domain}"
 	put_param "PageNumber" "1"
 	put_param "PageSize" "500"
 	
+	echo -e "${green} 正在加载中... ${end}"
 	send_request record.list.response.json
 	RecordsNumber=$(cat /root/alidns/record.list.response.json | jq ".TotalCount")
-	echo "ID | 主机记录 | 解析线路 | 记录状态 | 记录类型 | 记录值 | 记录ID | TTL" > /root/alidns/record.list.response.txt
+	echo "ID | 主机记录 | 状态 | 类型 | 记录值 | 记录ID | TTL" > /root/alidns/record.list.response.txt
 	for (( i=0; i < ${RecordsNumber}; i++ ))
 	do
 		get()
@@ -241,18 +258,17 @@ record_list()
 		}
 		id=$(expr $i + 1)
 		RR=$(get RR)
-		Line=$(get Line)
 		if [[ "$(get Status)" = "ENABLE" ]];then
-			Status="\033[32m enable \033[0m"
+			Status="${green} enable ${end}"
 		else
-			Status="\033[31m disable \033[0m"
+			Status="${red} disable ${end}"
 		fi
 		#Locked=$(get Locked)
 		Type=$(get Type)
 		Value=$(get Value)
 		RecordId=$(get RecordId)
 		TTL=$(get TTL)
-		echo -e "$id | $RR | $Line | $Status | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
+		echo -e "$id | $RR | $Status | $Type | $Value | $RecordId | $TTL" >> /root/alidns/record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/record.list.response.txt > /root/alidns/record.list.txt
 	cat /root/alidns/record.list.txt
@@ -261,7 +277,7 @@ record_list()
 set_recording_status()
 {
 	if [[ "${parameter2}" = "" ]];then
-		echo "No required parameters are passed in: RecordId"
+		echo -e "${red} 需要传入记录ID. ${end}"
 		exit
 	fi
 	
@@ -274,78 +290,102 @@ set_recording_status()
 		put_param "Status" "Disable"
 	fi
 
+	echo "请求发送中..."
 	send_request set.recording.status.response.json
-	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+	ResponseFile='/root/alidns/set.recording.status.response.json'
+	RecordId=$(jq .RecordId $ResponseFile | sed 's#"##g')
+
+	if [[ "$RecordId" = "null" ]];then
+		echo -e "${red} 操作失败. ${end}"
+	else	
+		echo -e "${green} 操作成功. ${end}"
+	fi
 }
 
 delete_parse_record()
 {
 	if [[ "${parameter2}" = "" ]];then
-		echo "No required parameters are passed in: RecordId"
+		echo -e "${red} 需要传入记录ID. ${end}"
+		exit
+	fi
+
+	bash "${BasePath}"/"${BaseName}" getinfo "${parameter2}"
+	ResponseFile='/root/alidns/get.analysis.record.information.response.json'
+	if [[ "$(cat ${ResponseFile} | jq .RR)" = "null" ]];then
+		echo -e "${red} 传入的记录ID无效. ${end}"
 		exit
 	fi
 	
 	put_params_public
 	put_param "Action" "DeleteDomainRecord"
 	put_param "RecordId" "${parameter2}"
+	
+	echo "请求发送中..."
 	send_request delete.parse.record.response.json
-	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+	echo -e "${green} 请求已发送.${end}"
 }
 
-modify_parsing_records()
+edit_parsing_records()
 {
 	if [[ "${parameter2}" = "" ]];then
-		echo "No required parameters are passed in: RecordId"
+		echo -e "${red} 需要传入记录ID. ${end}"
 		exit
 	fi
 	
 	bash "${BasePath}"/"${BaseName}" getinfo "${parameter2}"
-	before_record_rr=$(cat /root/alidns/value | awk -F ':' '{print $1}')
-	before_record_ip=$(cat /root/alidns/value | awk -F ':' '{print $2}')
+	ResponseFile='/root/alidns/get.analysis.record.information.response.json'
+	before_record_rr=$(jq .RR ${ResponseFile} | sed 's#"##g')
+	before_record_type=$(jq .Type ${ResponseFile} | sed 's#"##g')
+	before_record_value=$(jq .Value ${ResponseFile} | sed 's#"##g')
 	
-	put_params_public
-	put_param "Action" "UpdateDomainRecord"
-	
+	if [[ "$(cat ${ResponseFile} | jq .RR)" = "null" ]];then
+		echo -e "${red} 传入的记录ID无效. ${end}"
+		exit
+	fi
+
 	#主机记录
 	read -p "新主机记录:" HostRecord
 	if [[ "${HostRecord}" = "" ]];then
 		HostRecord="${before_record_rr}"
-		echo -e "\033[32m 主机记录(未变更):${HostRecord} \033[0m"
+		echo -e "${green} 主机记录(未变更):${HostRecord} ${end}"
 	else
-		echo -e "\033[32m 主机记录:${HostRecord} \033[0m"
+		echo -e "${green} 主机记录:${HostRecord} ${end}"
 	fi
 	#记录值
 	read -p "新记录值:" RecordValue
 	if [[ "${RecordValue}" = "" ]];then
-		RecordValue="${before_record_ip}"
-		echo -e "\033[32m 记录值(未变更):${RecordValue} \033[0m"
+		RecordValue="${before_record_value}"
+		echo -e "${green} 记录值(未变更):${RecordValue} ${end}"
 	else
-		echo -e "\033[32m 记录值:${RecordValue} \033[0m"
+		echo -e "${green} 记录值:${RecordValue} ${end}"
 	fi
 	#解析记录类型
 	read -p "新解析记录类型(A/NS/MX/TXT/CNAME/SRV/AAAA/CAA/REDIRECT_URL/FORWARD_URL):" ParsingRecordTypes
 	if [[ "${ParsingRecordTypes}" = "" ]];then
-		echo -e "\033[32m 解析记录类型:A \033[0m"
-		ParsingRecordTypes='A'
+		ParsingRecordTypes="${before_record_type}"
+		echo -e "${green} 解析记录类型(未变更):${ParsingRecordTypes} ${end}"
 	else
-		echo -e "\033[32m 解析记录类型:$ParsingRecordTypes \033[0m"
+		echo -e "${green} 解析记录类型:${ParsingRecordTypes} ${end}"
 	fi
 	#如若是MX记录,询问MX记录优先级
 	if [[ "${ParsingRecordTypes}" = "MX" ]];then
 		read -p "新MX记录优先级:" MxRecordPriority
 		if [[ "${MxRecordPriority}" = "" ]];then
-			echo "MX记录优先级不能为空.";exit
+			echo -e "${red} MX记录优先级不能为空. ${end}"
+			exit
 		else
-			echo -e "\033[32m MX记录优先级:$MxRecordPriority \033[0m"
+			echo -e "${green} MX记录优先级:${MxRecordPriority} ${end}"
 		fi
 	fi
 	#TTL值
-	read -p "TTL值(单位:s):" ttl_value
+	read -p "TTL值:" ttl_value
 	if [[ "${ttl_value}" = "" ]];then
-		ttl_value="${default_ttl}"
+		ttl_value="${DefaultTTL}"
 	fi
-	echo -e "\033[32m TTL值:${ttl_value} \033[0m"
+	echo -e "${green} TTL值:${ttl_value} ${end}"
 	
+	put_params_public
+	put_param "Action" "UpdateDomainRecord"
 	put_param "RecordId" "${parameter2}"
 	put_param "RR" "${HostRecord}"
 	put_param "Type" "${ParsingRecordTypes}"
@@ -355,8 +395,33 @@ modify_parsing_records()
 		put_param "Priority" "${MxRecordPriority}"
 	fi
 	
+	echo "请求发送中..."
 	send_request modify.parsing.records.response.json
-	echo "请求已发送.欲查看执行结果,请执行 aldns list 命令,查看或登入控制台查看."
+	
+	ResponseFile='/root/alidns/modify.parsing.records.response.json'
+	Message=$(jq .Message $ResponseFile | sed 's#"##g')
+	if [[ "$Message" != "null" ]];then
+		echo -e "${red} 修改失败,以下信息供参考: ${end}"
+		echo "RequestId -> $(jq .RequestId $ResponseFile | sed 's#"##g')"
+		echo "HostId    -> $(jq .HostId $ResponseFile | sed 's#"##g')"
+		echo "Code      -> $(jq .Code $ResponseFile | sed 's#"##g')"
+		echo "Message   -> $(jq .Message $ResponseFile | sed 's#"##g')"
+		echo "Recommend -> $(jq .Recommend $ResponseFile | sed 's#"##g')"
+	else
+		echo -e "${green} 修改成功. ${end}"
+	fi
+}
+
+modify_parsing_records()
+{
+	if [[ "${parameter2}" = "" ]];then
+		echo -e "${red} 需要传入主机记录. ${end}"
+		exit
+	fi
+
+	echo "加载解析信息中..."
+	RecordId=$(bash "${BasePath}"/"${BaseName}" search RR ${parameter2} | sed -n 2p | awk '{print $7}')
+	bash "${BasePath}"/"${BaseName}" edit $RecordId
 }
 
 search_parse_record_list()
@@ -365,20 +430,21 @@ search_parse_record_list()
 		RR|Type|Value)
 			;;
 		*)
-			echo "No required parameters are passed in: {RR|Type|Value}"
+			echo -e "${red} 不是有效的搜索类别: {RR|Type|Value} ${end}"
 			exit
 	esac
 	
 	if [[ "${parameter3}" = "" ]];then
-		echo "No required parameters are passed in: ValueKeyWord"
+		echo -e "${red} 请传入搜索关键词. ${end}"
 		exit
 	fi
 	
 	put_params_public
 	put_param "Action" "DescribeDomainRecords"
-	put_param "DomainName" "${ManagementDomain}"
+	put_param "DomainName" "${Domain}"
 	put_param "PageNumber" "1"
 	put_param "PageSize" "500"
+
 	if [[ "${parameter2}" = "RR" ]];then
 		put_param "RRKeyWord" "${parameter3}"
 	elif [[ "${parameter2}" = "Type" ]];then
@@ -386,10 +452,11 @@ search_parse_record_list()
 	elif [[ "${parameter2}" = "Value" ]];then
 		put_param "ValueKeyWord" "${parameter3}"
 	fi
+
 	send_request search.parse.record.list.response.json
 	RecordsNumber=$(cat /root/alidns/search.parse.record.list.response.json | jq ".TotalCount")
 	if [[ "${RecordsNumber}" = "0" ]];then
-		echo "No matching records were found."
+		echo -e "${red} 没有匹配的结果. ${end}"
 		exit
 	fi
 	
@@ -400,6 +467,7 @@ search_parse_record_list()
 		{
 			cat /root/alidns/search.parse.record.list.response.json | jq ".DomainRecords.Record[${i}].$1" | sed 's/"//g'
 		}
+
 		id=$(expr $i + 1)
 		RR=$(get RR)
 		Line=$(get Line)
@@ -409,11 +477,13 @@ search_parse_record_list()
 		Value=$(get Value)
 		RecordId=$(get RecordId)
 		TTL=$(get TTL)
+
 		if [[ "$Status" = "enable" ]];then
-			StatusText="\033[32m${Status}\033[0m"
+			StatusText="${green}${Status}${end}"
 		else
-			StatusText="\033[31m${Status}\033[0m"
+			StatusText="${red}${Status}${end}"
 		fi
+
 		echo -e "$id | $RR | $Line | $StatusText | $Type | $Value | $RecordId | $TTL" >> /root/alidns/search.parse.record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/search.parse.record.list.response.txt > /root/alidns/search.parse.record.list.txt
@@ -421,11 +491,11 @@ search_parse_record_list()
 	if [[ "${parameter4}" = "edit" ]];then
 		file_line=$(wc -l /root/alidns/search.parse.record.list.txt | awk '{print $1}')
 		if [[ "${file_line}" -gt "2" ]];then
-			echo "Multiple results are matched and cannot be modified directly."
-			exit
+			cat /root/alidns/search.parse.record.list.txt
+			echo
+			read -p "多个匹配结果,请指定记录ID:" RecordId
+			bash "${BasePath}"/"${BaseName}" edit "${RecordId}"
 		fi
-		RecordId=$(sed -n '2p' /root/alidns/search.parse.record.list.txt | awk '{print $7}')
-		bash "${BasePath}"/"${BaseName}" edit "${RecordId}"
 	else
 		cat /root/alidns/search.parse.record.list.txt
 	fi
@@ -437,43 +507,52 @@ get_analysis_record_information()
 	put_param "Action" "DescribeDomainRecordInfo"
 	put_param "RecordId" "$parameter2"
 	send_request get.analysis.record.information.response.json
-	
-	get()
-	{
-		cat /root/alidns/get.analysis.record.information.response.json | jq ".$1" | sed 's/"//g'
-	}
-	
-	record_RR=$(get RR)
-	record_Value=$(get Value)
-	
-	echo "${record_RR}:${record_Value}" > /root/alidns/value
+}
+
+get_server_ip()
+{
+	server_ip=$(curl -s --max-time 5 http://members.3322.org/dyndns/getip)
+	if [[ "$?" != "0" ]];then
+		server_ip=$(curl -s --max-time 5 http://ip.sb)
+		if [[ "$?" != "0" ]];then
+			echo -e "$(date "+%Y-%m-%d %H:%M:%S") [error] 获取服务器 ip 失败." | tee -a /root/alidns/ddns.domain.value.update.log
+			exit
+		fi
+	fi
 }
 
 ddns_domain_value_update()
 {
-	if [[ "${ddns_record_id}" = "" ]] || [[ "${ddns_record_value}" = "" ]];then
-		echo "You need to set the record id and host record value of the dns record."
+	if [[ "${DdnsRecordId}" = "" ]];then
+		echo -e "${red} 请先配置 ddns 记录 id. ${end}"
 		exit
 	fi
 	
-	server_ip=$(curl -s http://members.3322.org/dyndns/getip)
-	bash "${BasePath}"/"${BaseName}" getinfo "${ddns_record_id}"
-	record_rr=$(cat /root/alidns/value | awk -F ':' '{print $1}')
-	record_ip=$(cat /root/alidns/value | awk -F ':' '{print $2}')
+	get_server_ip
+	bash "${BasePath}"/"${BaseName}" getinfo "${DdnsRecordId}"
+	ResponseFile='/root/alidns/get.analysis.record.information.response.json'
+	record_rr=$(jq .RR ${ResponseFile} | sed 's#"##g')
+	record_ip=$(jq .Value ${ResponseFile} | sed 's#"##g')
 	
-	if [[ "${server_ip}" != "${record_ip}" ]]&& [[ "${server_ip}" != "" ]] && [[ "${record_ip}" != "" ]] ;then
+	if [[ "${server_ip}" != "${record_ip}" ]];then
 		put_params_public
 		put_param "Action" "UpdateDomainRecord"
-		put_param "RecordId" "${ddns_record_id}"
+		put_param "RecordId" "${DdnsRecordId}"
 		put_param "Value" "${server_ip}"
-		put_param "RR" "${ddns_record_value}"
-		put_param "TTL" "${default_ttl}"
+		put_param "RR" "${record_rr}"
+		put_param "TTL" "${DefaultTTL}"
 		put_param "Type" "A"
 		
 		send_request ddns.domain.value.update.response.json
-		echo "$(date "+%Y-%m-%d %H:%M:%S") [info] ${ddns_record_value} ${record_ip} -> ${server_ip}" | tee -a /root/alidns/ddns.domain.value.update.log
+		ResponseFile='/root/alidns/ddns.domain.value.update.response.json'
+		Message=$(jq .Message $ResponseFile | sed 's#"##g')
+		if [[ "$Message" != "null" ]];then
+			echo "$(date "+%Y-%m-%d %H:%M:%S") [error] ${Message}" | tee -a /root/alidns/ddns.domain.value.update.log
+		else
+			echo "$(date "+%Y-%m-%d %H:%M:%S") [info] ${record_rr} ${record_ip} -> ${server_ip}" | tee -a /root/alidns/ddns.domain.value.update.log
+		fi
 	else
-		echo "Since the ip and domain name record values are the same, no update is performed."
+		echo -e "${green} 此主机IP未变更,无需更新. ${end}"
 	fi
 }
 
@@ -492,47 +571,42 @@ setting_parameters()
 		AccessKeySecret)
 			sed -i "5c AccessKeySecret=\'${parameter3}\'" $file_path
 			echo "Set successfully : AccessKeySecret -> ${parameter3}";;
-		ManagementDomain)
-			sed -i "7c ManagementDomain=\'${parameter3}\'" $file_path
-			echo "Set successfully : ManagementDomain -> ${parameter3}";;
-		ddns_record_id)
-			sed -i "11c ddns_record_id=\'${parameter3}\'" $file_path
-			echo "Set successfully : ddns_record_id -> ${parameter3}";;
-		ddns_record_value)
-			sed -i "12c ddns_record_value=\'${parameter3}\'" $file_path
-			echo "Set successfully : ddns_record_value -> ${parameter3}";;
-		default_ttl)
-			sed -i "14c default_ttl=\'${parameter3}\'" $file_path
-			echo "Set successfully : default_ttl -> ${parameter3}";;
+		Domain)
+			sed -i "7c Domain=\'${parameter3}\'" $file_path
+			echo "Set successfully : Domain -> ${parameter3}";;
+		DdnsRecordId)
+			sed -i "11c DdnsRecordId=\'${parameter3}\'" $file_path
+			echo "Set successfully : DdnsRecordId -> ${parameter3}";;
+		DefaultTTL)
+			sed -i "13c DefaultTTL=\'${parameter3}\'" $file_path
+			echo "Set successfully : DefaultTTL -> ${parameter3}";;
 	esac
 }
 
 help_information()
 {
-	echo "add - 添加解析记录
-del {record id} 删除解析记录
-list - 获取解析列表
-edit {record id} 编辑解析记录
-enable {record id} - 启用解析记录
-disable {record id} - 停用解析记录
-search {RR|Type|Value} {KeyWord} - 使用关键词 KeyWord 查询记录
-set {AccessKeyId|AccessKeySecret|ManagementDomain|ddns_record_id|ddns_record_value|default_ttl}
-
-ddns 执行检测与更新
-log 查阅 ddns 更新日志
-
-更多使用指南请参见：https://github.com/qinghuas/alidns-bash"
+	echo -e "[命令] - [参数] - [操作]
+account - 无 - 查看管理域名
+add - 无 - 添加解析记录
+ddns - 无 - 执行ddns更新
+del - 记录ID - 删除解析记录
+disable - 记录ID - 停用解析记录
+edit - 记录ID - 编辑解析记录
+enable - 记录ID - 启用解析记录
+list - 无 - 获取解析列表
+log - 无 - 查阅ddns日志
+modify - 主机记录 - 快捷修改记录
+search - {RR|Type|Value} {KeyWord} - 使用关键词 KeyWord 查询记录
+set - {AccessKeyId|AccessKeySecret|Domain} - 设置必要参数
+set - {DdnsRecordId|DefaultTTL} - 设置可选参数" | column -t -s '-'
 }
 
 clear
+check
 parameter1=$1
 parameter2=$2
 parameter3=$3
 parameter4=$4
-
-if [[ "$parameter1" != "set" ]] && [[ "$parameter1" != "help" ]];then
-	check
-fi
 
 case "$parameter1" in
 	add)
@@ -544,6 +618,8 @@ case "$parameter1" in
 	del)
 		delete_parse_record;;
 	edit)
+		edit_parsing_records;;
+	modify)
 		modify_parsing_records;;
 	search)
 		search_parse_record_list;;
@@ -552,13 +628,11 @@ case "$parameter1" in
 	ddns)
 		ddns_domain_value_update;;
 	account)
-		echo "${ManagementDomain}";;
+		echo "${Domain}";;
 	log)
 		view_ddns_log;;
-	set)
-		setting_parameters;;
 	help|*)
 		help_information;;
 esac
 
-#END 2021-01-07
+#END 2021-08-22
