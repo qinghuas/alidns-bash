@@ -498,6 +498,8 @@ search_parse_record_list()
 			read -p "多个匹配结果,请指定记录ID:" RecordId
 			bash "${BasePath}"/"${BaseName}" edit "${RecordId}"
 		fi
+		RecordId=$(sed -n '2p' /root/alidns/search.parse.record.list.txt | awk '{print $7}')
+		bash "${BasePath}"/"${BaseName}" edit "${RecordId}"
 	else
 		cat /root/alidns/search.parse.record.list.txt
 	fi
