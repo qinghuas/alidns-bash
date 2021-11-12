@@ -10,7 +10,7 @@ ALiServerAddr='https://alidns.aliyuncs.com'
 # DDNS设置
 DdnsRecordId=''
 # 其他设置
-DefaultTTL='60'
+DefaultTTL='600'
 # 致谢 https://xvcat.com/post/1096
 BasePath=$(cd $(dirname ${BASH_SOURCE}) ; pwd)
 BaseName=$(basename $BASH_SOURCE)
