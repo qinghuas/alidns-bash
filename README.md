@@ -99,10 +99,16 @@ bash aldns.sh account
 bash aldns.sh help
 ```
 
-### 输出 ddns 日志
+### 输出修改日志
 ```
 bash aldns.sh log
 ```
+
+### 输出 ddns 日志
+```
+bash aldns.sh ddnslog
+```
+
 # 管理多个域名
 将 ```aldns.sh``` 复制一份后编辑 ```aldns2.sh``` 更改 ```Domain``` 项即可。如若域名在不同账户下，须填入对应账户的 ```AccessKeyId``` 与 ```AccessKeySecret```
 ```
