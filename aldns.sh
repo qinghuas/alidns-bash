@@ -10,7 +10,7 @@ ALiServerAddr='https://alidns.aliyuncs.com'
 # DDNS设置
 DdnsRecordId=''
 # 其他设置
-DefaultTTL='600'
+DefaultTTL='60'
 # 致谢 https://xvcat.com/post/1096
 BasePath=$(cd $(dirname ${BASH_SOURCE}) ; pwd)
 BaseName=$(basename $BASH_SOURCE)
@@ -489,7 +489,7 @@ search_parse_record_list()
 		echo -e "$id | $RR | $Line | $StatusText | $Type | $Value | $RecordId | $TTL" >> /root/alidns/search.parse.record.list.response.txt
 	done
 	column -t -s '|' /root/alidns/search.parse.record.list.response.txt > /root/alidns/search.parse.record.list.txt
-	
+
 	if [[ "${parameter4}" = "edit" ]];then
 		file_line=$(wc -l /root/alidns/search.parse.record.list.txt | awk '{print $1}')
 		if [[ "${file_line}" -gt "2" ]];then
@@ -565,6 +565,36 @@ view_ddns_log()
 	cat -n /root/alidns/ddns.domain.value.update.log
 }
 
+view_edit_log()
+{
+	view_num='15'
+	
+	put_params_public
+	put_param "Action" "DescribeRecordLogs"
+	put_param "DomainName" "${Domain}"
+	put_param "PageSize" "${view_num}"
+	put_param "Lang" "zh"
+
+	send_request operation.log.response.json
+	#echo "ID | 时间 | 类型 | 内容" > /root/alidns/operation.log.response.txt
+	for (( i=$(expr ${view_num} - 1); i >= 0 ; i-- ))
+	do
+		get()
+		{
+			cat /root/alidns/operation.log.response.json | jq ".RecordLogs.RecordLog[${i}].$1" | sed 's/"//g'
+		}
+		Action=$(get Action)
+		ActionTime=$(get ActionTime | sed 's/T/ /g' | sed 's/Z//g')
+		Message=$(get Message)
+
+		echo "序号：$(expr ${i} + 1)"
+		echo "类型：${Action}"
+		echo "时间：${ActionTime}"
+		echo "内容：${Message}"
+		echo "--------------------------"
+	done
+}
+
 setting_parameters()
 {
 	file_path="${BasePath}/${BaseName}"
@@ -593,12 +623,13 @@ help_information()
 account - 无 - 查看管理域名
 add - 无 - 添加解析记录
 ddns - 无 - 执行ddns更新
+ddnslog - 无 - 查看ddns日志
 del - 记录ID - 删除解析记录
 disable - 记录ID - 停用解析记录
 edit - 记录ID - 编辑解析记录
 enable - 记录ID - 启用解析记录
 list - 无 - 获取解析列表
-log - 无 - 查阅ddns日志
+log - 无 - 查看编辑日志
 modify - 主机记录 - 快捷修改记录
 search - {RR|Type|Value} {KeyWord} - 使用关键词 KeyWord 查询记录
 set - {AccessKeyId|AccessKeySecret|Domain} - 设置必要参数
@@ -633,12 +664,14 @@ case "$parameter1" in
 		ddns_domain_value_update;;
 	account)
 		echo "${Domain}";;
-	log)
+	ddnslog)
 		view_ddns_log;;
+	log)
+		view_edit_log;;
 	set)
 		setting_parameters;;
 	help|*)
 		help_information;;
 esac
 
-#END 2021-08-22
+#END 2021-11-12
