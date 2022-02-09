@@ -422,7 +422,7 @@ modify_parsing_records()
 	fi
 
 	echo "加载解析信息中..."
-	RecordId=$(bash "${BasePath}"/"${BaseName}" search RR ${parameter2} | sed -n 2p | awk '{print $7}')
+	RecordId=$(bash "${BasePath}"/"${BaseName}" search RR ${parameter2} | grep -w ${parameter2} | awk '{print $7}')
 	bash "${BasePath}"/"${BaseName}" edit $RecordId
 }
 
